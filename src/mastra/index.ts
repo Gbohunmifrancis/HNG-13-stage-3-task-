@@ -3,12 +3,13 @@ import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 import { weatherWorkflow } from './workflows/weather-workflow';
+import { potteryWorkflow } from './workflows/pottery-workflow';
 import { weatherAgent } from './agents/weather-agent';
 import { potteryAgent } from './agents/pottery-agent';
 import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow },
+  workflows: { weatherWorkflow, potteryWorkflow },
   agents: { weatherAgent, potteryAgent },
   scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
   storage: new LibSQLStore({
