@@ -65,7 +65,7 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
         }
       }
 
-      // Fallback: If no 'data' part logic worked, use the old (garbled) logic
+      // Fallback: If no 'data' part logic worked, use the old (garbled) 'text' part
       if (!promptText) {
         console.warn("Could not find prompt in 'data' part, using 'text' part as fallback.");
         promptText = messagesList.map((msg) => (
