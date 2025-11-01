@@ -243,13 +243,16 @@ async function handleMessageStream(c: any, agent: any, agentId: string, requestI
   const currentTaskId = taskId || randomUUID();
   const currentContextId = sessionId || randomUUID();
 
-  // Set up SSE streaming
+  // Set up SSE streaming with proper headers
   c.header('Content-Type', 'text/event-stream');
   c.header('Cache-Control', 'no-cache');
   c.header('Connection', 'keep-alive');
+  c.header('X-Accel-Buffering', 'no'); // Disable buffering in nginx
 
   const stream = new ReadableStream({
     async start(controller) {
+      const encoder = new TextEncoder();
+      
       try {
         // Send initial status
         const startEvent = {
@@ -268,34 +271,41 @@ async function handleMessageStream(c: any, agent: any, agentId: string, requestI
         controller.enqueue(`data: ${JSON.stringify(startEvent)}\n\n`);
 
         // Stream agent response
-        const response = await agent.stream(mastraMessages, {
-          threadId: sessionId || currentTaskId,
-          resourceId: metadata?.userId || 'telex-user',
-        });
+        const systemContext = {
+          role: 'system',
+          content: 'You are a pottery expert with access to a rich knowledge base of 28,856+ pottery embeddings. Use the potterySearchTool to find relevant information before answering.'
+        };
+
+        const response = await agent.stream(
+          [systemContext, ...mastraMessages],
+          {
+            threadId: sessionId || currentTaskId,
+            resourceId: metadata?.userId || 'telex-user',
+          }
+        );
 
         let fullText = '';
-        for await (const chunk of response) {
-          if (chunk.text) {
-            fullText += chunk.text;
-            const chunkEvent = {
-              jsonrpc: '2.0',
-              id: requestId,
-              result: {
-                id: currentTaskId,
-                contextId: currentContextId,
-                status: {
-                  state: 'streaming',
-                  timestamp: new Date().toISOString(),
-                  message: {
-                    kind: 'message',
-                    role: 'agent',
-                    parts: [{ kind: 'text', text: chunk.text }]
-                  }
+        // Correctly iterate over the textStream
+        for await (const chunk of response.textStream) {
+          fullText += chunk;
+          const chunkEvent = {
+            jsonrpc: '2.0',
+            id: requestId,
+            result: {
+              id: currentTaskId,
+              contextId: currentContextId,
+              status: {
+                state: 'streaming',
+                timestamp: new Date().toISOString(),
+                message: {
+                  kind: 'message',
+                  role: 'agent',
+                  parts: [{ kind: 'text', text: chunk }]
                 }
               }
-            };
-            controller.enqueue(`data: ${JSON.stringify(chunkEvent)}\n\n`);
-          }
+            }
+          };
+          controller.enqueue(`data: ${JSON.stringify(chunkEvent)}\n\n`);
         }
 
         // Send completion event
@@ -312,20 +322,43 @@ async function handleMessageStream(c: any, agent: any, agentId: string, requestI
                 messageId: randomUUID(),
                 role: 'agent',
                 parts: [{ kind: 'text', text: fullText }],
-                kind: 'message'
+                kind: 'message',
+                timestamp: new Date().toISOString()
               }
             },
             artifacts: [
               {
                 artifactId: randomUUID(),
                 name: `${agentId}Response`,
+                description: 'Complete response from pottery expert',
                 parts: [{ kind: 'text', text: fullText }]
+              }
+            ],
+            history: [
+              ...messagesList.map((msg: any) => ({
+                kind: 'message',
+                role: msg.role,
+                parts: msg.parts,
+                messageId: msg.messageId || randomUUID(),
+                taskId: currentTaskId,
+                timestamp: msg.timestamp || new Date().toISOString()
+              })),
+              {
+                kind: 'message',
+                role: 'agent',
+                parts: [{ kind: 'text', text: fullText }],
+                messageId: randomUUID(),
+                taskId: currentTaskId,
+                timestamp: new Date().toISOString()
               }
             ],
             kind: 'task'
           }
         };
         controller.enqueue(`data: ${JSON.stringify(completionEvent)}\n\n`);
+        
+        // Send [DONE] marker for proper stream termination
+        controller.enqueue('data: [DONE]\n\n');
         controller.close();
 
       } catch (error: any) {
