@@ -40,26 +40,40 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
       else if (messages && Array.isArray(messages)) messagesList = messages;
 
       // -----------------------------------------------------------------
-      // FINAL FIX: Use ONLY the first "text" part as the prompt
-      // Based on the Telex maintainer's new information.
+      // FINAL FIX: Extract the REAL prompt from the 'data' part
       // -----------------------------------------------------------------
       let promptText = '';
 
-      if (messagesList.length > 0) {
-        const firstMessage = messagesList[0];
-        if (firstMessage.parts && Array.isArray(firstMessage.parts)) {
-          // Find the first part that is "kind": "text"
-          const textPart = firstMessage.parts.find(p => p.kind === 'text');
-          
-          if (textPart && textPart.text) {
-            promptText = stripHtml(textPart.text);
+      // Loop through all messages (usually just one)
+      for (const msg of messagesList) {
+        if (!msg.parts || !Array.isArray(msg.parts)) continue;
+
+        // Find the 'data' part
+        const dataPart = msg.parts.find(p => p.kind === 'data' && Array.isArray(p.data));
+        
+        if (dataPart) {
+          // Find the *last* text item in the data array
+          const lastTextItem = dataPart.data
+            .slice() // Create a copy to reverse safely
+            .reverse()
+            .find(item => item.kind === 'text' && item.text);
+            
+          if (lastTextItem) {
+            promptText = stripHtml(lastTextItem.text);
+            break; // Found the real prompt
           }
         }
       }
 
-      // If no text part was found, something is wrong with the request
+      // Fallback: If no 'data' part logic worked, use the old (garbled) 'text' part
       if (!promptText) {
-        console.warn("No 'text' part found in the message parts array. The agent will receive an empty prompt.");
+        console.warn("Could not find prompt in 'data' part, using 'text' part as fallback.");
+        promptText = messagesList.map((msg) => (
+          msg.parts
+            ?.filter(part => part.kind === 'text')
+            .map(part => stripHtml(part.text))
+            .join('\n') || ''
+        )).join('\n');
       }
 
       // Now, create the clean message for the agent
