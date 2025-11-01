@@ -12,6 +12,35 @@ import { randomUUID } from 'crypto';
  * Protocol: JSON-RPC 2.0
  * Method: POST
  */
+// Health check endpoint
+export const a2aHealthRoute = registerApiRoute('/a2a/agent/:agentId', {
+  method: 'GET',
+  handler: async (c) => {
+    const agentId = c.req.param('agentId');
+    const mastra = c.get('mastra');
+    const agent = mastra.getAgent(agentId);
+    
+    if (!agent) {
+      return c.json({
+        error: `Agent '${agentId}' not found`,
+        availableAgents: ['potteryAgent']
+      }, 404);
+    }
+    
+    return c.json({
+      agentId,
+      status: 'ready',
+      protocol: 'A2A',
+      supportedMethods: ['message/send', 'message/stream', 'tasks/get', 'tasks/cancel'],
+      agentCard: {
+        name: 'Pottery Expert Agent',
+        description: 'AI pottery expert powered by RAG with 28,856+ pottery knowledge embeddings',
+        capabilities: ['question-answering', 'knowledge-retrieval', 'rag-search', 'pottery-expertise']
+      }
+    });
+  }
+});
+
 export const a2aPotteryRoute = registerApiRoute('/a2a/agent/:agentId', {
   method: 'POST',
   handler: async (c) => {
@@ -21,16 +50,30 @@ export const a2aPotteryRoute = registerApiRoute('/a2a/agent/:agentId', {
 
       // Parse JSON-RPC 2.0 request
       const body = await c.req.json();
+      console.log('A2A Request received:', JSON.stringify(body, null, 2));
+      
       const { jsonrpc, id: requestId, method, params } = body;
 
-      // Validate JSON-RPC 2.0 format
-      if (jsonrpc !== '2.0' || !requestId) {
+      // Validate JSON-RPC 2.0 format (allow null id for notifications)
+      if (jsonrpc !== '2.0') {
         return c.json({
           jsonrpc: '2.0',
           id: requestId || null,
           error: {
             code: -32600,
-            message: 'Invalid Request: jsonrpc must be "2.0" and id is required'
+            message: 'Invalid Request: jsonrpc must be "2.0"'
+          }
+        }, 400);
+      }
+
+      // Validate method is provided
+      if (!method) {
+        return c.json({
+          jsonrpc: '2.0',
+          id: requestId || null,
+          error: {
+            code: -32600,
+            message: 'Invalid Request: method is required'
           }
         }, 400);
       }

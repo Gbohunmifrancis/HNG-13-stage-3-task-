@@ -24,7 +24,7 @@
     "agent": "https://future-hissing-ram-c1017.mastra.cloud/api/agents/potteryAgent",
     "generate": "https://future-hissing-ram-c1017.mastra.cloud/api/agents/potteryAgent/generate",
     "stream": "https://future-hissing-ram-c1017.mastra.cloud/api/agents/potteryAgent/stream",
-    "a2a": "https://future-hissing-ram-c1017.mastra.cloud/a2a/potteryAgent"
+    "a2a": "https://future-hissing-ram-c1017.mastra.cloud/a2a/agent/potteryAgent"
   },
   "tools": [
     {

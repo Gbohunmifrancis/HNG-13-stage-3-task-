@@ -4,7 +4,7 @@ import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 import { potteryWorkflow } from './workflows/pottery-workflow';
 import { potteryAgent } from './agents/pottery-agent';
-import { a2aPotteryRoute } from './routes/a2a-pottery-route';
+import { a2aPotteryRoute, a2aHealthRoute } from './routes/a2a-pottery-route';
 
 export const mastra = new Mastra({
   workflows: { potteryWorkflow },
@@ -30,6 +30,6 @@ export const mastra = new Mastra({
       openAPIDocs: true,
       swaggerUI: true,
     },
-    apiRoutes: [a2aPotteryRoute]
+    apiRoutes: [a2aHealthRoute, a2aPotteryRoute]
   }
 });

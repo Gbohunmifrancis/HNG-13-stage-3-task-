@@ -3,8 +3,7 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { LibSQLStore } from '@mastra/libsql';
-// We comment out the import because we are not using the tool in this test
-// import { potterySearchTool } from '../tools/pottery-tool'; 
+import { potterySearchTool } from '../tools/pottery-tool'; 
 
 export const potteryAgent = new Agent({
   name: 'Pottery Expert',
@@ -16,12 +15,13 @@ export const potteryAgent = new Agent({
     - Troubleshooting common pottery issues
     - Tools and equipment used in pottery making
 
-    A user will ask you a question. Answer it directly using your own general knowledge.
-    Provide clear, helpful, and accurate information.
+    A user will ask you a question. You MUST use the potterySearchTool to find relevant information before answering.
+    Base your answer on the search results from the pottery knowledge base.
+    Provide clear, helpful, and accurate information based on the search results.
     Be conversational and encouraging!
   `,
   model: 'openai/gpt-4o-mini',
-  // tools: { potterySearchTool }, // <-- Tool is temporarily disabled
+  tools: { potterySearchTool },
   memory: new Memory({
     storage: new LibSQLStore({
       url: 'file:../mastra.db', // path is relative to the .mastra/output directory
