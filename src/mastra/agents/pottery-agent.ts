@@ -1,5 +1,10 @@
 // This goes in src/mastra/agents/pottery-agent.ts
 
+import { Agent } from '@mastra/core/agent';
+import { Memory } from '@mastra/memory';
+import { LibSQLStore } from '@mastra/libsql';
+import { potterySearchTool } from '../tools/pottery-tool';
+
 export const potteryAgent = new Agent({
   name: 'Pottery Expert',
   instructions: `
