@@ -2,23 +2,20 @@
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
-import { weatherWorkflow } from './workflows/weather-workflow';
 import { potteryWorkflow } from './workflows/pottery-workflow';
-import { weatherAgent } from './agents/weather-agent';
 import { potteryAgent } from './agents/pottery-agent';
-import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
+import { a2aPotteryRoute } from './routes/a2a-pottery-route';
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow, potteryWorkflow },
-  agents: { weatherAgent, potteryAgent },
-  scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
+  workflows: { potteryWorkflow },
+  agents: { potteryAgent },
   storage: new LibSQLStore({
     // stores observability, scores, ... into memory storage, if it needs to persist, change to file:../mastra.db
     url: ":memory:",
   }),
   logger: new PinoLogger({
     name: 'Mastra',
-    level: 'info',
+    level: 'debug', // Changed to debug for better A2A logging
   }),
   telemetry: {
     // Telemetry is deprecated and will be removed in the Nov 4th release
@@ -28,4 +25,11 @@ export const mastra = new Mastra({
     // Enables DefaultExporter and CloudExporter for AI tracing
     default: { enabled: true }, 
   },
+  server: {
+    build: {
+      openAPIDocs: true,
+      swaggerUI: true,
+    },
+    apiRoutes: [a2aPotteryRoute]
+  }
 });

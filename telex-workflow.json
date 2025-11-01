@@ -1,0 +1,62 @@
+{
+  "active": true,
+  "category": "education",
+  "description": "An AI pottery expert that provides guidance on ceramic arts, techniques, materials, and more",
+  "id": "pottery_expert_workflow",
+  "name": "pottery_expert_agent",
+  "long_description": "You are an expert pottery assistant with deep knowledge of ceramic arts. You have access to a rich knowledge base containing over 28,856 pottery-related embeddings covering:\n\n- Clay types and preparation (earthenware, stoneware, porcelain, terracotta)\n- Wheel throwing and hand-building techniques\n- Glazing methods and chemistry\n- Firing processes (bisque, glaze, raku, pit firing)\n- Pottery tools and equipment\n- Historical and cultural pottery traditions\n- Troubleshooting common pottery issues\n- Surface decoration techniques\n\nYour primary function is to help users with pottery-related questions. When responding:\n- Provide accurate, detailed information based on the knowledge base\n- Include relevant technical details (temperatures, ratios, timing)\n- Offer practical tips and best practices\n- Explain complex concepts in an accessible way\n- Suggest related topics or techniques when relevant\n- Always cite sources from the knowledge base when available\n\nUse the potterySearchTool to retrieve information from the vector database before answering questions. This ensures your responses are grounded in authoritative pottery knowledge.",
+  "short_description": "AI pottery expert powered by RAG with 28,856+ pottery knowledge embeddings",
+  "nodes": [
+    {
+      "id": "pottery_agent",
+      "name": "Pottery Expert Agent",
+      "parameters": {
+        "temperature": 0.7,
+        "maxTokens": 2000,
+        "enableRAG": true
+      },
+      "position": [816, -112],
+      "type": "a2a/mastra-a2a-node",
+      "typeVersion": 1,
+      "url": "https://future-hissing-ram-c1017.mastra.cloud/a2a/agent/potteryAgent"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "metadata": {
+    "author": "Francis Gbohunmi",
+    "version": "1.0.0",
+    "tags": ["pottery", "ceramics", "art", "education", "rag", "ai-agent"],
+    "capabilities": [
+      "question-answering",
+      "knowledge-retrieval",
+      "rag-search",
+      "pottery-expertise"
+    ],
+    "vectorDatabase": {
+      "provider": "pinecone",
+      "index": "glazeai-2",
+      "namespace": "__default__",
+      "totalVectors": 28856,
+      "dimension": 1536
+    },
+    "model": {
+      "provider": "openai",
+      "name": "gpt-4o-mini"
+    }
+  },
+  "exampleQueries": [
+    "What are the different types of clay used in pottery?",
+    "How do I prepare clay for wheel throwing?",
+    "What is the raku firing technique?",
+    "Explain the difference between earthenware and stoneware",
+    "What are common pottery glazing techniques?",
+    "How do I fix cracks in pottery?",
+    "What temperature should I fire porcelain at?",
+    "What tools do I need to start pottery?",
+    "How do I center clay on a pottery wheel?",
+    "What causes pottery to crack during firing?"
+  ]
+}

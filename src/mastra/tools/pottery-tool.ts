@@ -96,7 +96,7 @@ async function searchPineconeKnowledge(query: string, maxResults: number = 3): P
         const metadata = match.metadata || {};
         
         // Handle multiple metadata field variations from your Pinecone index
-        const topic = metadata..title || 
+        const topic = metadata.title || 
                      metadata.topic || 
                      metadata.originalTerm || 
                      metadata.original_term || 
