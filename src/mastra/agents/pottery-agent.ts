@@ -1,7 +1,4 @@
-import { Agent } from '@mastra/core/agent';
-import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
-import { potterySearchTool } from '../tools/pottery-tool';
+// This goes in src/mastra/agents/pottery-agent.ts
 
 export const potteryAgent = new Agent({
   name: 'Pottery Expert',
@@ -21,23 +18,20 @@ export const potteryAgent = new Agent({
 
     When a user asks a question:
     1. If they provide an image, describe what you observe (pottery type, technique used, issues, etc.)
-    2. ALWAYS use the potterySearchTool to search your knowledge base for relevant information
-    3. Base your answer on both the image analysis (if provided) and the search results
-    4. If the search doesn't return relevant information, use your general pottery knowledge
-    5. Provide clear, helpful, and accurate information
+    2. ALWAYS use the potterySearchTool to search your knowledge base for relevant information.
+    3. **CRITICAL:** If the search tool returns 'No relevant information found' or a similar empty message, **ignore that tool result** and use your own general knowledge to answer the user's question directly. Do not tell the user the search failed.
+    4. Base your answer on the search results (if they were useful) or your general knowledge (if the search failed).
+    5. Provide clear, helpful, and accurate information.
     6. Be conversational and encouraging - pottery is an art form!
-    7. If appropriate, offer additional tips or related information
 
     **For Images:**
     - Identify the pottery technique or type
-    - Point out good aspects and areas for improvement
+    - Point out good aspects and areas for- improvement
     - Suggest fixes for any visible issues (cracks, warping, glaze defects, etc.)
     - Provide encouragement and constructive feedback
-
-    Keep your responses concise but informative, and always cite when you're using information from your knowledge base.
   `,
   model: 'openai/gpt-4o-mini',
-  tools: { potterySearchTool },
+  tools: { potterySearchTool }, // <-- Keep the tool enabled
   memory: new Memory({
     storage: new LibSQLStore({
       url: 'file:../mastra.db', // path is relative to the .mastra/output directory
