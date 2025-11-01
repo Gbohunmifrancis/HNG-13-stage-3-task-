@@ -44,38 +44,67 @@ export const a2aHealthRoute = registerApiRoute('/a2a/agent/:agentId', {
 export const a2aPotteryRoute = registerApiRoute('/a2a/agent/:agentId', {
   method: 'POST',
   handler: async (c) => {
+    let requestId = null;
+    
     try {
       const mastra = c.get('mastra');
       const agentId = c.req.param('agentId');
 
-      // Parse JSON-RPC 2.0 request
-      const body = await c.req.json();
+      // Parse JSON-RPC 2.0 request with error handling
+      let body;
+      try {
+        body = await c.req.json();
+      } catch (parseError) {
+        // Malformed JSON - return JSON-RPC error with HTTP 200
+        return c.json({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32700,
+            message: 'Parse error: Invalid JSON was received'
+          }
+        }, 200);
+      }
+
       console.log('A2A Request received:', JSON.stringify(body, null, 2));
       
-      const { jsonrpc, id: requestId, method, params } = body;
+      const { jsonrpc, id, method, params } = body;
+      requestId = id;
 
-      // Validate JSON-RPC 2.0 format (allow null id for notifications)
+      // Validate request ID is present (required by JSON-RPC 2.0)
+      if (id === undefined) {
+        return c.json({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32600,
+            message: 'Invalid Request: id is required'
+          }
+        }, 200);
+      }
+
+      // Validate JSON-RPC 2.0 format
       if (jsonrpc !== '2.0') {
         return c.json({
           jsonrpc: '2.0',
-          id: requestId || null,
+          id: requestId,
           error: {
             code: -32600,
             message: 'Invalid Request: jsonrpc must be "2.0"'
           }
-        }, 400);
+        }, 200);
       }
 
       // Validate method is provided
       if (!method) {
         return c.json({
           jsonrpc: '2.0',
-          id: requestId || null,
+          id: requestId,
           error: {
             code: -32600,
             message: 'Invalid Request: method is required'
           }
-        }, 400);
+        }, 200);
       }
 
       // Validate agent exists
@@ -86,9 +115,9 @@ export const a2aPotteryRoute = registerApiRoute('/a2a/agent/:agentId', {
           id: requestId,
           error: {
             code: -32602,
-            message: `Agent '${agentId}' not found. Available agents: potteryAgent`
+            message: `Invalid params: Agent '${agentId}' not found. Available agents: potteryAgent`
           }
-        }, 404);
+        }, 200);
       }
 
       // Handle different A2A methods
@@ -111,16 +140,16 @@ export const a2aPotteryRoute = registerApiRoute('/a2a/agent/:agentId', {
             id: requestId,
             error: {
               code: -32601,
-              message: `Method '${method}' not found. Supported methods: message/send, message/stream, tasks/get, tasks/cancel`
+              message: `Method not found: '${method}'. Supported methods: message/send, message/stream, tasks/get, tasks/cancel`
             }
-          }, 400);
+          }, 200);
       }
 
     } catch (error: any) {
       console.error('A2A Route Error:', error);
       return c.json({
         jsonrpc: '2.0',
-        id: null,
+        id: requestId,
         error: {
           code: -32603,
           message: 'Internal error',
@@ -129,7 +158,7 @@ export const a2aPotteryRoute = registerApiRoute('/a2a/agent/:agentId', {
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
           }
         }
-      }, 500);
+      }, 200);
     }
   }
 });
@@ -155,7 +184,7 @@ async function handleMessageSend(c: any, agent: any, agentId: string, requestId:
         code: -32602,
         message: 'Invalid params: either "message" or "messages" is required'
       }
-    }, 400);
+    }, 200);
   }
 
   // Convert A2A messages to Mastra format
@@ -444,7 +473,7 @@ async function handleTasksGet(c: any, requestId: string, params: any) {
         code: -32602,
         message: 'Invalid params: "id" (taskId) is required'
       }
-    }, 400);
+    }, 200);
   }
 
   // In a production system, you'd retrieve this from storage
@@ -482,7 +511,7 @@ async function handleTasksCancel(c: any, requestId: string, params: any) {
         code: -32602,
         message: 'Invalid params: "id" (taskId) is required'
       }
-    }, 400);
+    }, 200);
   }
 
   // In a production system, you'd cancel the running task
