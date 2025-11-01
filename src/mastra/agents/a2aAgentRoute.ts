@@ -1,9 +1,8 @@
 import { registerApiRoute } from '@mastra/core/server';
 import { randomUUID } from 'crypto';
 
-// --- NEW HELPER FUNCTION ---
 // Helper function to strip HTML tags and clean up text
-const stripHtml = (html) => {
+const stripHtml = (html: string | undefined | null) => {
   if (!html) return '';
   return html
     .replace(/<[^>]+>/g, ' ') // Replace all HTML tags with a space
@@ -11,7 +10,6 @@ const stripHtml = (html) => {
     .replace(/\s\s+/g, ' ')   // Collapse multiple whitespace
     .trim();
 };
-// -------------------------
 
 export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
   method: 'POST',
@@ -42,16 +40,49 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
       else if (messages && Array.isArray(messages)) messagesList = messages;
 
       // -----------------------------------------------------------------
-      // REVISED FIX #1: Filter for 'text' AND strip all HTML tags
+      // FINAL FIX: Extract the REAL prompt from the 'data' part
       // -----------------------------------------------------------------
-      const mastraMessages = messagesList.map((msg) => ({
-        role: msg.role,
-        content: msg.parts
-          ?.filter(part => part.kind === 'text')
-          .map(part => stripHtml(part.text)) // <-- APPLYING THE FIX
-          .join('\n') || '',
-      }));
-      
+      let promptText = '';
+
+      // Loop through all messages (usually just one)
+      for (const msg of messagesList) {
+        if (!msg.parts || !Array.isArray(msg.parts)) continue;
+
+        // Find the 'data' part
+        const dataPart = msg.parts.find(p => p.kind === 'data' && Array.isArray(p.data));
+        
+        if (dataPart) {
+          // Find the *last* text item in the data array
+          const lastTextItem = dataPart.data
+            .slice() // Create a copy to reverse safely
+            .reverse()
+            .find(item => item.kind === 'text' && item.text);
+            
+          if (lastTextItem) {
+            promptText = stripHtml(lastTextItem.text);
+            break; // Found the real prompt
+          }
+        }
+      }
+
+      // Fallback: If no 'data' part logic worked, use the old (garbled) logic
+      if (!promptText) {
+        console.warn("Could not find prompt in 'data' part, using 'text' part as fallback.");
+        promptText = messagesList.map((msg) => (
+          msg.parts
+            ?.filter(part => part.kind === 'text')
+            .map(part => stripHtml(part.text))
+            .join('\n') || ''
+        )).join('\n');
+      }
+
+      // Now, create the clean message for the agent
+      const mastraMessages = [{
+        role: 'user',
+        content: promptText
+      }];
+      // -----------------------------------------------------------------
+
       // Define a function to generate and format the response
       const getAgentResponse = async () => {
         const response = await agent.generate(mastraMessages);
@@ -107,7 +138,7 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
 
       // Handle blocking vs. non-blocking requests
       if (blocking) {
-        // SYNCHRONOUS: Client is waiting (like your 'curl' test)
+        // SYNCHRONOUS: Client is waiting
         const response = await getAgentResponse();
         return c.json(response);
 
@@ -143,9 +174,7 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
           } catch (err) {
             console.error('Error processing non-blocking agent request:', err.message);
             
-            // -----------------------------------------------------------
-            // REVISED FIX #2: Send an ERROR response back to the Telex webhook
-            // -----------------------------------------------------------
+            // 5. Send an ERROR response back to the Telex webhook
             const errorResponse = {
               jsonrpc: '2.0',
               id: requestId, // Use the same requestId from the original request
