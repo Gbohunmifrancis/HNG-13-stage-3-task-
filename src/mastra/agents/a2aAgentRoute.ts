@@ -1,6 +1,18 @@
 import { registerApiRoute } from '@mastra/core/server';
 import { randomUUID } from 'crypto';
 
+// --- NEW HELPER FUNCTION ---
+// Helper function to strip HTML tags and clean up text
+const stripHtml = (html) => {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]+>/g, ' ') // Replace all HTML tags with a space
+    .replace(/&nbsp;/g, ' ')   // Replace non-breaking spaces
+    .replace(/\s\s+/g, ' ')   // Collapse multiple whitespace
+    .trim();
+};
+// -------------------------
+
 export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
   method: 'POST',
   handler: async (c) => {
@@ -30,14 +42,13 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
       else if (messages && Array.isArray(messages)) messagesList = messages;
 
       // -----------------------------------------------------------------
-      // FIX #1: Only use 'text' parts to build the content
-      // This stops history and 'data' parts from garbling the prompt
+      // REVISED FIX #1: Filter for 'text' AND strip all HTML tags
       // -----------------------------------------------------------------
       const mastraMessages = messagesList.map((msg) => ({
         role: msg.role,
         content: msg.parts
-          ?.filter(part => part.kind === 'text') // <-- THE FIX
-          .map(part => part.text)
+          ?.filter(part => part.kind === 'text')
+          .map(part => stripHtml(part.text)) // <-- APPLYING THE FIX
           .join('\n') || '',
       }));
       
@@ -94,36 +105,33 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
         };
       };
 
-      // -----------------------------------------------------------------
-      // FIX #2: Handle blocking vs. non-blocking requests
-      // -----------------------------------------------------------------
+      // Handle blocking vs. non-blocking requests
       if (blocking) {
         // SYNCHRONOUS: Client is waiting (like your 'curl' test)
-        // Generate response and return it directly
         const response = await getAgentResponse();
         return c.json(response);
 
       } else {
         // ASYNCHRONOUS: Telex is NOT waiting.
-        // We must send the response to the pushNotificationConfig.url
         
         // 1. Acknowledge the request immediately (Telex expects this)
         c.json({ jsonrpc: '2.0', id: requestId, result: { message: "Accepted for processing" } });
 
         // 2. Do the agent work in the background
-        // We use c.executionCtx.waitUntil to allow the work to complete
-        // even after the 'Accepted' response has been sent.
         c.executionCtx.waitUntil((async () => {
+          
+          const webhookUrl = pushNotificationConfig?.url;
+          if (!webhookUrl) {
+            console.error('Non-blocking request but no pushNotificationConfig.url provided.');
+            return;
+          }
+          
           try {
+            // 3. Generate the actual response
             const agentResponse = await getAgentResponse();
             
-            if (!pushNotificationConfig?.url) {
-              console.error('Non-blocking request but no pushNotificationConfig.url provided.');
-              return;
-            }
-
-            // 3. Send the final response to the Telex webhook
-            await fetch(pushNotificationConfig.url, {
+            // 4. Send the SUCCESS response to the Telex webhook
+            await fetch(webhookUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -133,8 +141,29 @@ export const a2aAgentRoute = registerApiRoute('/a2a/agent/:agentId', {
             });
 
           } catch (err) {
-            console.error('Error processing non-blocking agent request:', err);
-            // Optionally, post an error back to a webhook
+            console.error('Error processing non-blocking agent request:', err.message);
+            
+            // -----------------------------------------------------------
+            // REVISED FIX #2: Send an ERROR response back to the Telex webhook
+            // -----------------------------------------------------------
+            const errorResponse = {
+              jsonrpc: '2.0',
+              id: requestId, // Use the same requestId from the original request
+              error: {
+                code: -32000, // Standard JSON-RPC server error
+                message: 'Agent failed to generate a response.',
+                data: { details: err.message }
+              }
+            };
+
+            await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${pushNotificationConfig.token}`
+              },
+              body: JSON.stringify(errorResponse)
+            });
           }
         })());
 
